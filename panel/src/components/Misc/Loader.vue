@@ -7,6 +7,6 @@
   z-index: 1;
 }
 .k-loader svg {
-  animation: Spin .9s linear infinite;
+  animation: Spin .4s linear infinite;
 }
 </style>
