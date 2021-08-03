@@ -26,21 +26,22 @@ class View
      * be injected on demand.
      *
      * @param array $data
+     * @param array $options
      * @return array
      */
-    public static function apply(array $data): array
+    public static function apply(array $data, array $options): array
     {
         $request = kirby()->request();
         $only    = $request->header('X-Fiber-Only') ?? get('_only');
 
         if (empty($only) === false) {
-            return static::applyOnly($data, $only);
+            return static::applyOnly($data, $only, $options);
         }
 
         $globals = $request->header('X-Fiber-Globals') ?? get('_globals');
 
         if (empty($globals) === false) {
-            return static::applyGlobals($data, $globals);
+            return static::applyGlobals($data, $globals, $options);
         }
 
         return A::apply($data);
@@ -55,9 +56,10 @@ class View
      *
      * @param array $data
      * @param string|null $globals
+     * @param array $options
      * @return array
      */
-    public static function applyGlobals(array $data, ?string $globals = null): array
+    public static function applyGlobals(array $data, ?string $globals = null, array $options = []): array
     {
         // split globals string into an array of fields
         $globalKeys = Str::split($globals, ',');
@@ -67,7 +69,7 @@ class View
             return $data;
         }
 
-        $globals = static::globals();
+        $globals = static::globals($options);
 
         foreach ($globalKeys as $globalKey) {
             if (isset($globals[$globalKey]) === true) {
@@ -89,9 +91,10 @@ class View
      *
      * @param array $data
      * @param string|null $only
+     * @param array $options
      * @return array
      */
-    public static function applyOnly(array $data, ?string $only = null): array
+    public static function applyOnly(array $data, ?string $only = null, array $options = []): array
     {
         // split include string into an array of fields
         $onlyKeys = Str::split($only, ',');
@@ -107,7 +110,7 @@ class View
 
         // check if globals are requested and need to be merged
         if (Str::contains($only, '$')) {
-            $data = array_merge_recursive(static::globals(), $data);
+            $data = array_merge_recursive(static::globals($options), $data);
         }
 
         // make sure the data is already resolved to make
@@ -139,73 +142,9 @@ class View
     {
         $kirby = kirby();
 
-        // multilang setup check
-        $multilang = $kirby->option('languages', false) !== false;
-
-        // get the authenticated user
-        $user = $kirby->user();
-
-        // user permissions
-        $permissions = $user ? $user->role()->permissions()->toArray() : [];
-
-        // current content language
-        $language = $kirby->language();
-
         // shared data for all requests
         return [
-            '$direction' => function () use ($kirby, $multilang, $language, $user) {
-                if ($multilang === true && $language && $user) {
-                    $isDefault = $language->direction() === $kirby->defaultLanguage()->direction();
-                    $isFromUser = $language->code() === $user->language();
-
-                    if ($isDefault === false && $isFromUser === false) {
-                        return $language->direction();
-                    }
-                }
-            },
-            '$language' => function () use ($kirby, $multilang, $language) {
-                if ($multilang === true && $language) {
-                    return [
-                        'code'    => $language->code(),
-                        'default' => $language->isDefault(),
-                        'name'    => $language->name(),
-                    ];
-                }
-            },
-            '$languages' => function () use ($kirby, $multilang): array {
-                if ($multilang === true) {
-                    return $kirby->languages()->values(function ($language) {
-                        return [
-                            'code'    => $language->code(),
-                            'default' => $language->isDefault(),
-                            'name'    => $language->name(),
-                        ];
-                    });
-                }
-
-                return [];
-            },
-            '$menu' => function () use ($options, $permissions) {
-                return static::menu($options['areas'] ?? [], $permissions, $options['area']['id'] ?? null);
-            },
-            '$permissions' => $permissions,
-            '$license' => (bool)$kirby->system()->license(),
-            '$multilang' => $multilang,
-            '$searches' => static::searches($options['areas'] ?? [], $permissions),
             '$url' => Url::current(),
-            '$user' => function () use ($user) {
-                if ($user) {
-                    return [
-                        'email'       => $user->email(),
-                        'id'          => $user->id(),
-                        'language'    => $user->language(),
-                        'role'        => $user->role()->id(),
-                        'username'    => $user->username(),
-                    ];
-                }
-
-                return null;
-            },
             '$view' => function () use ($kirby, $options, $view) {
                 $defaults = [
                     'breadcrumb' => [],
@@ -260,11 +199,24 @@ class View
      * It can be loaded partially later if needed,
      * but is otherwise not included in Fiber calls.
      *
+     * @param array $options
      * @return array
      */
-    public static function globals(): array
+    public static function globals(array $options): array
     {
         $kirby = kirby();
+
+        // multilang setup check
+        $multilang = $kirby->option('languages', false) !== false;
+
+        // get the authenticated user
+        $user = $kirby->user();
+
+        // user permissions
+        $permissions = $user ? $user->role()->permissions()->toArray() : [];
+
+        // current content language
+        $language = $kirby->language();
 
         return [
             '$config' => function () use ($kirby) {
@@ -278,6 +230,45 @@ class View
                     'translation' => $kirby->option('panel.language', 'en'),
                 ];
             },
+            '$direction' => function () use ($kirby, $multilang, $language, $user) {
+                if ($multilang === true && $language && $user) {
+                    $isDefault = $language->direction() === $kirby->defaultLanguage()->direction();
+                    $isFromUser = $language->code() === $user->language();
+
+                    if ($isDefault === false && $isFromUser === false) {
+                        return $language->direction();
+                    }
+                }
+            },
+            '$language' => function () use ($kirby, $multilang, $language) {
+                if ($multilang === true && $language) {
+                    return [
+                        'code'    => $language->code(),
+                        'default' => $language->isDefault(),
+                        'name'    => $language->name(),
+                    ];
+                }
+            },
+            '$languages' => function () use ($kirby, $multilang): array {
+                if ($multilang === true) {
+                    return $kirby->languages()->values(function ($language) {
+                        return [
+                            'code'    => $language->code(),
+                            'default' => $language->isDefault(),
+                            'name'    => $language->name(),
+                        ];
+                    });
+                }
+
+                return [];
+            },
+            '$license' => (bool)$kirby->system()->license(),
+            '$menu' => function () use ($options, $permissions) {
+                return static::menu($options['areas'] ?? [], $permissions, $options['area']['id'] ?? null);
+            },
+            '$multilang' => $multilang,
+            '$permissions' => $permissions,
+            '$searches' => static::searches($options['areas'] ?? [], $permissions),
             '$system' => function () use ($kirby) {
                 $locales = [];
 
@@ -313,7 +304,20 @@ class View
                     'api'  => $kirby->url('api'),
                     'site' => $kirby->url('index')
                 ];
-            }
+            },
+            '$user' => function () use ($user) {
+                if ($user) {
+                    return [
+                        'email'       => $user->email(),
+                        'id'          => $user->id(),
+                        'language'    => $user->language(),
+                        'role'        => $user->role()->id(),
+                        'username'    => $user->username(),
+                    ];
+                }
+
+                return null;
+            },
         ];
     }
 
@@ -412,13 +416,13 @@ class View
 
             // filter data, if only or globals headers or
             // query parameters are set
-            $fiber = static::apply($fiber);
+            $fiber = static::apply($fiber, $options);
 
             return Panel::json($fiber, $fiber['$view']['code'] ?? 200);
         }
 
         // load globals for the full document response
-        $globals = static::globals();
+        $globals = static::globals($options);
 
         // resolve and merge globals and shared data
         $fiber = array_merge_recursive(A::apply($globals), A::apply($fiber));

@@ -243,6 +243,7 @@ Vue.component("k-tabs", Tabs);
 Vue.component("k-view", View);
 
 /* Misc */
+import Async from "@/components/Misc/Async.vue";
 import Draggable from "@/components/Misc/Draggable.vue";
 import ErrorBoundary from "@/components/Misc/ErrorBoundary.vue";
 import Fatal from "@/components/Misc/Fatal.vue";
@@ -258,6 +259,7 @@ import StatusIcon from "@/components/Misc/StatusIcon.vue";
 import Text from "@/components/Misc/Text.vue";
 import UserInfo from "@/components/Misc/UserInfo.vue";
 
+Vue.component("k-async", Async);
 Vue.component("k-draggable", Draggable);
 Vue.component("k-error-boundary", ErrorBoundary);
 Vue.component("k-fatal", Fatal);

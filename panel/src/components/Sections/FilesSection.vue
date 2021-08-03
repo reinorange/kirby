@@ -2,7 +2,7 @@
   <section class="k-files-section">
     <header class="k-section-header">
       <k-headline>
-        {{ headline }} <abbr v-if="options.min" :title="$t('section.required')">*</abbr>
+        {{ headline }} <abbr v-if="min" :title="$t('section.required')">*</abbr>
       </k-headline>
       <k-button-group v-if="add">
         <k-button icon="upload" @click="upload">
@@ -11,45 +11,50 @@
       </k-button-group>
     </header>
 
-    <template>
-      <k-dropzone :disabled="add === false" @drop="drop">
-        <k-collection
-          v-if="data.length"
-          :help="help"
-          :items="items(data)"
-          :layout="options.layout"
-          :pagination="pagination"
-          :sortable="!isProcessing && options.sortable"
-          :size="options.size"
-          :data-invalid="isInvalid"
-          @sort="sort"
-          @paginate="paginate"
-          @action="action"
-        />
-        <template v-else>
-          <k-empty
-            :layout="options.layout"
-            :data-invalid="isInvalid"
-            icon="image"
-            @click="upload"
-          >
-            {{ options.empty || $t('files.empty') }}
-          </k-empty>
-          <footer class="k-collection-footer">
-            <!-- eslint-disable vue/no-v-html -->
-            <k-text
-              v-if="help"
-              theme="help"
-              class="k-collection-help"
-              v-html="help"
-            />
-            <!-- eslint-enable vue/no-v-html -->
-          </footer>
-        </template>
-      </k-dropzone>
+    <k-async ref="async" :endpoint="$view.path + '/sections/' + name">
+      <template #error="{ error, reload }">
+        {{ error }}
+      </template>
+      <template #default="{ isLoading, response, reload }">
+        <k-dropzone :disabled="add === false" @drop="drop">
+          <k-collection
+            v-if="!isLoading && response.items.length"
+            :help="help"
+            :items="items(response.items)"
+            :layout="layout"
+            :pagination="response.pagination"
+            :sortable="!isProcessing && sortable"
+            :size="size"
+            @sort="sort"
+            @paginate="paginate"
+            @action="action"
+          />
+          <template v-else>
+            <k-empty
+              :layout="layout"
+              :data-invalid="isInvalid"
+              icon="image"
+              @click="upload"
+            >
+              {{ empty || $t('files.empty') }}
+            </k-empty>
+            <footer class="k-collection-footer">
+              <!-- eslint-disable vue/no-v-html -->
+              <k-text
+                v-if="help"
+                theme="help"
+                class="k-collection-help"
+                v-html="help"
+              />
+              <!-- eslint-enable vue/no-v-html -->
+            </footer>
+          </template>
 
-      <k-upload ref="upload" @success="$reload" @error="$reload" />
-    </template>
+          <k-upload ref="upload" @success="$reload" @error="$reload" />
+        </k-dropzone>
+      </template>
+    </k-async>
+
   </section>
 </template>
 
@@ -60,8 +65,8 @@ export default {
   mixins: [CollectionSectionMixin],
   computed: {
     add() {
-      if (this.$permissions.files.create && this.options.upload !== false) {
-        return this.options.upload;
+      if (this.$permissions.files.create && this.upload !== false) {
+        return this.upload;
       } else {
         return false;
       }
@@ -93,13 +98,13 @@ export default {
     },
     items(data) {
       return data.map(file => {
-        file.sortable = this.options.sortable;
+        file.sortable = this.sortable;
         file.column   = this.column;
         file.options  = this.$dropdown(this.$api.files.url(file.parent, file.filename), {
           query: {
             view: "list",
-            update: this.options.sortable,
-            delete: data.length > this.options.min
+            update: this.sortable,
+            delete: data.length > this.min
           }
         });
 
@@ -120,7 +125,7 @@ export default {
       });
     },
     async sort(items) {
-      if (this.options.sortable === false) {
+      if (this.sortable === false) {
         return false;
       }
 
@@ -131,7 +136,7 @@ export default {
       });
 
       try {
-        await this.$api.patch(this.options.apiUrl + "/files/sort", {
+        await this.$api.patch(this.apiUrl + "/files/sort", {
           files: items,
           index: this.pagination.offset
         });

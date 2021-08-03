@@ -91,135 +91,12 @@ return [
         'parent' => function () {
             return $this->parentModel();
         },
-        'pages' => function () {
-            switch ($this->status) {
-                case 'draft':
-                    $pages = $this->parent->drafts();
-                    break;
-                case 'listed':
-                    $pages = $this->parent->children()->listed();
-                    break;
-                case 'published':
-                    $pages = $this->parent->children();
-                    break;
-                case 'unlisted':
-                    $pages = $this->parent->children()->unlisted();
-                    break;
-                default:
-                    $pages = $this->parent->childrenAndDrafts();
-            }
-
-            // loop for the best performance
-            foreach ($pages->data as $id => $page) {
-
-                // remove all protected pages
-                if ($page->isReadable() === false) {
-                    unset($pages->data[$id]);
-                    continue;
-                }
-
-                // filter by all set templates
-                if ($this->templates && in_array($page->intendedTemplate()->name(), $this->templates) === false) {
-                    unset($pages->data[$id]);
-                    continue;
-                }
-            }
-
-            // sort
-            if ($this->sortBy) {
-                $pages = $pages->sort(...$pages::sortArgs($this->sortBy));
-            }
-
-            // flip
-            if ($this->flip === true) {
-                $pages = $pages->flip();
-            }
-
-            // pagination
-            $pages = $pages->paginate([
-                'page'   => $this->page,
-                'limit'  => $this->limit,
-                'method' => 'none' // the page is manually provided
-            ]);
-
-            return $pages;
-        },
-        'total' => function () {
-            return $this->pages->pagination()->total();
-        },
-        'data' => function () {
-            $data = [];
-
-            foreach ($this->pages as $item) {
-                $panel       = $item->panel();
-                $permissions = $item->permissions();
-
-                // escape the default text
-                // TODO: no longer needed in 3.6
-                $text = $item->toString($this->text);
-                if ($this->text === '{{ page.title }}') {
-                    $text = Escape::html($text);
-                }
-
-                $data[] = [
-                    'id'          => $item->id(),
-                    'dragText'    => $panel->dragText(),
-                    'text'        => $text,
-                    'info'        => $item->toString($this->info ?? false),
-                    'parent'      => $item->parentId(),
-                    'image'       => $panel->image($this->image, $this->layout),
-                    'link'        => $panel->url(true),
-                    'template'    => $item->intendedTemplate()->name(),
-                    'status'      => $item->status(),
-                    'permissions' => [
-                        'sort'         => $permissions->can('sort'),
-                        'changeSlug'   => $permissions->can('changeSlug'),
-                        'changeStatus' => $permissions->can('changeStatus'),
-                        'changeTitle'  => $permissions->can('changeTitle'),
-                    ]
-                ];
-            }
-
-            return $data;
-        },
-        'errors' => function () {
-            $errors = [];
-
-            if ($this->validateMax() === false) {
-                $errors['max'] = I18n::template('error.section.pages.max.' . I18n::form($this->max), [
-                    'max'     => $this->max,
-                    'section' => $this->headline
-                ]);
-            }
-
-            if ($this->validateMin() === false) {
-                $errors['min'] = I18n::template('error.section.pages.min.' . I18n::form($this->min), [
-                    'min'     => $this->min,
-                    'section' => $this->headline
-                ]);
-            }
-
-            if (empty($errors) === true) {
-                return [];
-            }
-
-            return [
-                $this->name => [
-                    'label'   => $this->headline,
-                    'message' => $errors,
-                ]
-            ];
-        },
         'add' => function () {
             if ($this->create === false) {
                 return false;
             }
 
             if (in_array($this->status, ['draft', 'all']) === false) {
-                return false;
-            }
-
-            if ($this->isFull() === true) {
                 return false;
             }
 
@@ -232,9 +109,6 @@ return [
             if ($modelLink !== $parentLink) {
                 return $parentLink;
             }
-        },
-        'pagination' => function () {
-            return $this->pagination();
         },
         'sortable' => function () {
             if (in_array($this->status, ['listed', 'published', 'all']) === false) {
@@ -284,25 +158,124 @@ return [
             }
 
             return $blueprints;
-        }
+        },
+
     ],
+    'api' => function () {
+        $section = $this;
+
+        return [
+            [
+                'pattern' => '/',
+                'action'  => function () use ($section) {
+
+                    switch ($section->status) {
+                        case 'draft':
+                            $pages = $section->parent->drafts();
+                            break;
+                        case 'listed':
+                            $pages = $section->parent->children()->listed();
+                            break;
+                        case 'published':
+                            $pages = $section->parent->children();
+                            break;
+                        case 'unlisted':
+                            $pages = $section->parent->children()->unlisted();
+                            break;
+                        default:
+                            $pages = $section->parent->childrenAndDrafts();
+                    }
+
+                    // loop for the best performance
+                    foreach ($pages->data as $id => $page) {
+
+                        // remove all protected pages
+                        if ($page->isReadable() === false) {
+                            unset($pages->data[$id]);
+                            continue;
+                        }
+
+                        // filter by all set templates
+                        if ($section->templates && in_array($page->intendedTemplate()->name(), $section->templates) === false) {
+                            unset($pages->data[$id]);
+                            continue;
+                        }
+                    }
+
+                    // sort
+                    if ($section->sortBy) {
+                        $pages = $pages->sort(...$pages::sortArgs($section->sortBy));
+                    }
+
+                    // flip
+                    if ($section->flip === true) {
+                        $pages = $pages->flip();
+                    }
+
+                    // pagination
+                    $pages = $pages->paginate([
+                        'page'   => $section->page,
+                        'limit'  => $section->limit,
+                        'method' => 'none' // the page is manually provided
+                    ]);
+
+                    $pagination = $pages->pagination();
+                    $items      = [];
+
+                    foreach ($pages as $item) {
+                        $panel       = $item->panel();
+                        $permissions = $item->permissions();
+
+                        // escape the default text
+                        // TODO: no longer needed in 3.6
+                        $text = $item->toString($section->text);
+
+                        if ($section->text === '{{ page.title }}') {
+                            $text = Escape::html($text);
+                        }
+
+                        $items[] = [
+                            'id'          => $item->id(),
+                            'dragText'    => $panel->dragText(),
+                            'text'        => $text,
+                            'info'        => $item->toString($section->info ?? false),
+                            'parent'      => $item->parentId(),
+                            'image'       => $panel->image($section->image, $section->layout),
+                            'link'        => $panel->url(true),
+                            'template'    => $item->intendedTemplate()->name(),
+                            'status'      => $item->status(),
+                            'permissions' => [
+                                'sort'         => $permissions->can('sort'),
+                                'changeSlug'   => $permissions->can('changeSlug'),
+                                'changeStatus' => $permissions->can('changeStatus'),
+                                'changeTitle'  => $permissions->can('changeTitle'),
+                            ]
+                        ];
+                    }
+
+                    return [
+                        'items'      => $items,
+                        'pagination' => [
+                            'page'  => $pagination->page(),
+                            'total' => $pagination->total()
+                        ]
+                    ];
+                }
+            ]
+        ];
+    },
     'toArray' => function () {
         return [
-            'data'    => $this->data,
-            'errors'  => $this->errors,
-            'options' => [
-                'add'      => $this->add,
-                'empty'    => $this->empty,
-                'headline' => $this->headline,
-                'help'     => $this->help,
-                'layout'   => $this->layout,
-                'link'     => $this->link,
-                'max'      => $this->max,
-                'min'      => $this->min,
-                'size'     => $this->size,
-                'sortable' => $this->sortable
-            ],
-            'pagination' => $this->pagination,
+            'add'      => $this->add,
+            'empty'    => $this->empty,
+            'headline' => $this->headline,
+            'help'     => $this->help,
+            'layout'   => $this->layout,
+            'link'     => $this->link,
+            'max'      => $this->max,
+            'min'      => $this->min,
+            'size'     => $this->size,
+            'sortable' => $this->sortable
         ];
     }
 ];

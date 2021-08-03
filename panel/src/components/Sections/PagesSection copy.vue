@@ -1,8 +1,8 @@
 <template>
   <section class="k-pages-section" :data-processing="isProcessing">
     <header class="k-section-header">
-      <k-headline :link="link">
-        {{ headline }} <abbr v-if="min" :title="$t('section.required')">*</abbr>
+      <k-headline :link="options.link">
+        {{ headline }} <abbr v-if="options.min" :title="$t('section.required')">*</abbr>
       </k-headline>
 
       <k-button-group v-if="add">
@@ -12,25 +12,41 @@
       </k-button-group>
     </header>
 
-    <k-async ref="async" :endpoint="$view.path + '/sections/' + name">
-      <template #error="{ error, reload }">
-        {{ error }}
-      </template>
-      <template #default="{ isLoading, response, reload }">
-        <k-collection
-          v-if="!isLoading"
-          :layout="layout"
-          :help="help"
-          :items="items(response.items)"
-          :pagination="response.pagination"
-          :sortable="sortable"
-          :size="size"
-          @sort="sort"
-          @paginate="paginate"
-        />
-      </template>
-    </k-async>
+    <template>
+      <k-collection
+        v-if="data.length"
+        :layout="options.layout"
+        :help="help"
+        :items="items(data)"
+        :pagination="pagination"
+        :sortable="options.sortable"
+        :size="options.size"
+        :data-invalid="isInvalid"
+        @sort="sort"
+        @paginate="paginate"
+      />
 
+      <template v-else>
+        <k-empty
+          :layout="options.layout"
+          :data-invalid="isInvalid"
+          icon="page"
+          @click="create"
+        >
+          {{ options.empty || $t('pages.empty') }}
+        </k-empty>
+        <footer class="k-collection-footer">
+          <!-- eslint-disable vue/no-v-html -->
+          <k-text
+            v-if="help"
+            theme="help"
+            class="k-collection-help"
+            v-html="help"
+          />
+          <!-- eslint-enable vue/no-v-html -->
+        </footer>
+      </template>
+    </template>
   </section>
 </template>
 
@@ -39,12 +55,17 @@ import CollectionSectionMixin from "@/mixins/section/collection.js";
 
 export default {
   mixins: [CollectionSectionMixin],
+  computed: {
+    add() {
+      return this.options.add && this.$permissions.pages.create;
+    }
+  },
   methods: {
     create() {
       if (this.add) {
         this.$dialog('pages/create', {
           query: {
-            parent: this.link || this.parent,
+            parent: this.options.link || this.parent,
             view: this.parent,
             section: this.name
           }
@@ -64,8 +85,8 @@ export default {
           }
         };
 
-        page.sortable  = page.permissions.sort && this.sortable;
-        page.deletable = data.length > this.min;
+        page.sortable  = page.permissions.sort && this.options.sortable;
+        page.deletable = data.length > this.options.min;
         page.column    = this.column;
         page.options   = this.$dropdown(this.$api.pages.url(page.id), {
           query: {

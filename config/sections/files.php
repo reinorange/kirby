@@ -82,98 +82,6 @@ return [
         'parent' => function () {
             return $this->parentModel();
         },
-        'files' => function () {
-            $files = $this->parent->files()->template($this->template);
-
-            // filter out all protected files
-            $files = $files->filter('isReadable', true);
-
-            if ($this->sortBy) {
-                $files = $files->sort(...$files::sortArgs($this->sortBy));
-            } else {
-                $files = $files->sorted();
-            }
-
-            // flip
-            if ($this->flip === true) {
-                $files = $files->flip();
-            }
-
-            // apply the default pagination
-            $files = $files->paginate([
-                'page'   => $this->page,
-                'limit'  => $this->limit,
-                'method' => 'none' // the page is manually provided
-            ]);
-
-            return $files;
-        },
-        'data' => function () {
-            $data = [];
-
-            // the drag text needs to be absolute when the files come from
-            // a different parent model
-            $dragTextAbsolute = $this->model->is($this->parent) === false;
-
-            foreach ($this->files as $file) {
-                $panel = $file->panel();
-
-                // escape the default text
-                // TODO: no longer needed in 3.6
-                $text = $file->toString($this->text);
-                if ($this->text === '{{ file.filename }}') {
-                    $text = Escape::html($text);
-                }
-
-                $data[] = [
-                    'dragText' => $panel->dragText('auto', $dragTextAbsolute),
-                    'extension' => $file->extension(),
-                    'filename' => $file->filename(),
-                    'id'       => $file->id(),
-                    'image'    => $panel->image($this->image, $this->layout),
-                    'info'     => $file->toString($this->info ?? false),
-                    'link'     => $panel->url(true),
-                    'mime'     => $file->mime(),
-                    'parent'   => $file->parent()->panel()->path(),
-                    'template' => $file->template(),
-                    'text'     => $text,
-                    'url'      => $file->url(),
-                ];
-            }
-
-            return $data;
-        },
-        'total' => function () {
-            return $this->files->pagination()->total();
-        },
-        'errors' => function () {
-            $errors = [];
-
-            if ($this->validateMax() === false) {
-                $errors['max'] = I18n::template('error.section.files.max.' . I18n::form($this->max), [
-                    'max'     => $this->max,
-                    'section' => $this->headline
-                ]);
-            }
-
-            if ($this->validateMin() === false) {
-                $errors['min'] = I18n::template('error.section.files.min.' . I18n::form($this->min), [
-                    'min'     => $this->min,
-                    'section' => $this->headline
-                ]);
-            }
-
-            if (empty($errors) === true) {
-                return [];
-            }
-
-            return [
-                $this->name => [
-                    'label'   => $this->headline,
-                    'message' => $errors,
-                ]
-            ];
-        },
         'link' => function () {
             $modelLink  = $this->model->panel()->url(true);
             $parentLink = $this->parent->panel()->url(true);
@@ -181,9 +89,6 @@ return [
             if ($modelLink !== $parentLink) {
                 return $parentLink;
             }
-        },
-        'pagination' => function () {
-            return $this->pagination();
         },
         'sortable' => function () {
             if ($this->sortable === false) {
@@ -201,26 +106,12 @@ return [
             return true;
         },
         'upload' => function () {
-            if ($this->isFull() === true) {
-                return false;
-            }
-
-            // count all uploaded files
-            $total = count($this->data);
-            $max   = $this->max ? $this->max - $total : null;
-
-            if ($this->max && $total === $this->max - 1) {
-                $multiple = false;
-            } else {
-                $multiple = true;
-            }
-
             $template = $this->template === 'default' ? null : $this->template;
 
             return [
                 'accept'     => $this->accept,
-                'multiple'   => $multiple,
-                'max'        => $max,
+                'multiple'   => true,
+                'max'        => $this->max,
                 'api'        => $this->parent->apiUrl(true) . '/files',
                 'attributes' => array_filter([
                     'template' => $template
@@ -228,25 +119,98 @@ return [
             ];
         }
     ],
+    'api' => function() {
+
+        $section = $this;
+
+        return [
+            [
+                'pattern' => '/',
+                'action'  => function () use ($section) {
+
+                    $files = $section->parent->files()->template($section->template);
+
+                    // filter out all protected files
+                    $files = $files->filter('isReadable', true);
+
+                    if ($section->sortBy) {
+                        $files = $files->sort(...$files::sortArgs($section->sortBy));
+                    } else {
+                        $files = $files->sorted();
+                    }
+
+                    // flip
+                    if ($section->flip === true) {
+                        $files = $files->flip();
+                    }
+
+                    // apply the default pagination
+                    $files = $files->paginate([
+                        'page'   => $section->page,
+                        'limit'  => $section->limit,
+                        'method' => 'none' // the page is manually provided
+                    ]);
+
+                    $pagination = $files->pagination();
+                    $items      = [];
+
+                    // the drag text needs to be absolute when the files come from
+                    // a different parent model
+                    $dragTextAbsolute = $section->model->is($section->parent) === false;
+
+                    foreach ($files as $file) {
+                        $panel = $file->panel();
+
+                        // escape the default text
+                        // TODO: no longer needed in 3.6
+                        $text = $file->toString($section->text);
+                        if ($section->text === '{{ file.filename }}') {
+                            $text = Escape::html($text);
+                        }
+
+                        $items[] = [
+                            'dragText'  => $panel->dragText('auto', $dragTextAbsolute),
+                            'extension' => $file->extension(),
+                            'filename'  => $file->filename(),
+                            'id'        => $file->id(),
+                            'image'     => $panel->image($section->image, $section->layout),
+                            'info'      => $file->toString($section->info ?? false),
+                            'link'      => $panel->url(true),
+                            'mime'      => $file->mime(),
+                            'parent'    => $file->parent()->panel()->path(),
+                            'template'  => $file->template(),
+                            'text'      => $text,
+                            'url'       => $file->url(),
+                        ];
+                    }
+
+                    return [
+                        'items'      => $items,
+                        'pagination' => [
+                            'page'  => $pagination->page(),
+                            'total' => $pagination->total()
+                        ]
+                    ];
+
+                }
+            ]
+        ];
+
+    },
     'toArray' => function () {
         return [
-            'data'    => $this->data,
-            'errors'  => $this->errors,
-            'options' => [
-                'accept'   => $this->accept,
-                'apiUrl'   => $this->parent->apiUrl(true),
-                'empty'    => $this->empty,
-                'headline' => $this->headline,
-                'help'     => $this->help,
-                'layout'   => $this->layout,
-                'link'     => $this->link,
-                'max'      => $this->max,
-                'min'      => $this->min,
-                'size'     => $this->size,
-                'sortable' => $this->sortable,
-                'upload'   => $this->upload
-            ],
-            'pagination' => $this->pagination
+            'accept'   => $this->accept,
+            'apiUrl'   => $this->parent->apiUrl(true),
+            'empty'    => $this->empty,
+            'headline' => $this->headline,
+            'help'     => $this->help,
+            'layout'   => $this->layout,
+            'link'     => $this->link,
+            'max'      => $this->max,
+            'min'      => $this->min,
+            'size'     => $this->size,
+            'sortable' => $this->sortable,
+            'upload'   => $this->upload
         ];
     }
 ];

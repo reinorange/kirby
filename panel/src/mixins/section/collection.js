@@ -3,36 +3,23 @@ export default {
   props: {
     blueprint: String,
     column: String,
+    empty: String,
+    headline: String,
+    help: String,
+    layout: String,
+    link: String,
+    max: Number,
+    min: Number,
     parent: String,
     name: String,
+    size: String,
     timestamp: Number,
-    data: Array,
-    options: Object,
-    pagination: Object
+    sortable: Boolean,
   },
   data() {
     return {
       isProcessing: false,
     };
-  },
-  computed: {
-    headline() {
-      return this.options.headline || " ";
-    },
-    help() {
-      return this.options.help;
-    },
-    isInvalid() {
-      if (this.options.min && this.data.length < this.options.min) {
-        return true;
-      }
-
-      if (this.options.max && this.data.length > this.options.max) {
-        return true;
-      }
-
-      return false;
-    }
   },
   methods: {
     items(data) {

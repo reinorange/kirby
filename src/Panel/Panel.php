@@ -2,6 +2,7 @@
 
 namespace Kirby\Panel;
 
+use Kirby\Cms\Find;
 use Kirby\Cms\User;
 use Kirby\Exception\Exception;
 use Kirby\Exception\InvalidArgumentException;
@@ -245,6 +246,8 @@ class Panel
                 return Search::response($result, $options);
             case 'view':
                 return View::response($result, $options);
+            case 'json':
+                return static::json($result);
         }
     }
 
@@ -344,6 +347,19 @@ class Panel
                 static::routesForDropdowns($areaId, $area),
             );
         }
+
+
+        $routes[] = [
+            'pattern' => '(:all)/sections/(:any)/(:all?)',
+            'type'    => 'json',
+            'action'  => function (string $parentId, string $sectionName, string $path = '/') {
+                $parent  = Find::parent($parentId);
+                $section = $parent->blueprint()->section($sectionName);
+
+                return router($path, 'GET', $section->api());
+            }
+        ];
+
 
         // if the Panel is already installed and/or the
         // user is authenticated, those areas won't be

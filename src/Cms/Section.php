@@ -55,6 +55,21 @@ class Section extends Component
         parent::__construct($type, $attrs);
     }
 
+    /**
+     * Returns section api call
+     *
+     * @return mixed
+     */
+    public function api()
+    {
+        if (
+            isset($this->options['api']) === true &&
+            is_a($this->options['api'], 'Closure') === true
+        ) {
+            return $this->options['api']->call($this);
+        }
+    }
+
     public function errors(): array
     {
         if (array_key_exists('errors', $this->methods) === true) {
