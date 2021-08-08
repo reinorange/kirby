@@ -8,7 +8,7 @@ return [
             $pages = site()
                 ->index(true)
                 ->search($query)
-                ->filter('isReadable', true)
+                ->filter('isAccessible', true)
                 ->limit(10);
 
             $results = [];
