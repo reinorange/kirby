@@ -1,6 +1,7 @@
 <?php
 
 use Kirby\Exception\InvalidArgumentException;
+use Kirby\Sane\Sane;
 use Kirby\Toolkit\Str;
 
 return [
@@ -60,7 +61,9 @@ return [
             return $this->convert($this->default);
         },
         'value' => function () {
-            return (string)$this->convert($this->value);
+            $value = (string)$this->convert($this->value);
+
+            return Sane::sanitize($value, 'html');
         }
     ],
     'methods' => [
