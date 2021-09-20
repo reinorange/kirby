@@ -338,6 +338,76 @@ class Html extends Xml
         return $rel;
     }
 
+    public static function remove(string $string = null): string
+    {
+        $doc = new Dom('<body>' . $string . '</body>', 'html');
+        $doc->sanitize([
+            'allowedAttrs' => [],
+            'allowedTags'  => ['html' => true, 'body' => true],
+        ]);
+
+        return $doc->innerMarkup($doc->body());
+    }
+
+    public static function sanitize(string $string = null, array $options = []): string
+    {
+        $defaults = [
+            'allowedAttrs' => ['class', 'id'],
+            'allowedTags'  => [
+                'a'          => ['href', 'rel', 'target', 'title'],
+                'abbr'       => ['title'],
+                'b'          => true,
+                'body'       => true,
+                'blockquote' => true,
+                'br'         => true,
+                'dl'         => true,
+                'dd'         => true,
+                'del'        => true,
+                'div'        => true,
+                'dt'         => true,
+                'em'         => true,
+                'h1'         => true,
+                'h2'         => true,
+                'h3'         => true,
+                'h4'         => true,
+                'h5'         => true,
+                'h6'         => true,
+                'hr'         => true,
+                'html'       => true,
+                'i'          => true,
+                'img'        => ['loading', 'src', 'srcset', 'alt', 'title'],
+                'ins'        => true,
+                'li'         => true,
+                'strong'     => true,
+                'sub'        => true,
+                'sup'        => true,
+                'ol'         => true,
+                'p'          => true,
+                'ul'         => true,
+            ],
+            'disallowedTags' => [
+                'iframe',
+                'meta',
+                'object',
+                'script',
+                'style',
+            ],
+            'urlAttrs' => [
+                'href',
+                'src',
+            ]
+        ];
+
+        $options = array_replace($defaults, $options);
+
+        $options['allowedTags']['html'] = true;
+        $options['allowedTags']['body'] = true;
+
+        $doc = new Dom('<body>' . $string . '</body>', 'html');
+        $doc->sanitize($options);
+        return $doc->innerMarkup($doc->body());
+    }
+
     /**
      * Builds an HTML tag
      *
